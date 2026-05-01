@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Track Info - RBR RSF</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 12px;
+            background-color: transparent; 
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            overflow: hidden;
+        }
+
+        #content-area {
+            background-color: rgba(0, 0, 0, 0.75); 
+            padding: 18px 22px; 
+            border-left: 6px solid #ff9800; 
+            border-radius: 0 12px 12px 0;
+            box-shadow: 4px 4px 18px rgba(0,0,0,0.6);
+            max-width: 92%; 
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-25px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        h1 {
+            font-size: calc(18px + 1.1vw); 
+            margin: 0;
+            color: #ff9800;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 5px #000;
+            line-height: 1.1;
+        }
+
+        .info-row {
+            font-size: calc(12px + 0.5vw);
+            color: #00d4ff; 
+            margin: 5px 0 12px 0;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            text-shadow: 1px 1px 3px #000;
+        }
+
+        p {
+            font-size: calc(14px + 0.8vw);
+            margin: 0;
+            line-height: 1.45;
+            text-shadow: 1px 1px 3px #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="content-area">
+        <h1 id="track-header"></h1>
+        <div id="track-info" class="info-row"></div>
+        <p id="track-description"></p>
+    </div>
+
+    <script>
+        const jsonUrl = "https://docs.google.com/spreadsheets/d/1UAHa4gGiunb8T07qGvNuOG17Ln50bxihpVZFyWHElSg/gviz/tq?tqx=out:json";
+        let currentLoadedTrackId = null;
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function normalize(val) {
+            return val ? val.toString().toLowerCase().trim() : "";
+        }
+
+        async function loadTrackData() {
+            try {
+                const trackIdParam = normalize(getQueryParam("TrackId"));
+                
+                if (!trackIdParam || trackIdParam === "null" || trackIdParam === "0") {
+                    document.getElementById("content-area").style.opacity = "0";
+                    currentLoadedTrackId = null;
+                    return;
+                }
+
+                if (trackIdParam === currentLoadedTrackId) return;
+
+                const response = await fetch(jsonUrl);
+                const text = await response.text();
+                const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+                const jsonData = JSON.parse(jsonText);
+
+                // Set this now to prevent re-fetching missing IDs
+                currentLoadedTrackId = trackIdParam;
+
+                const rows = jsonData.table.rows;
+                const headers = jsonData.table.cols.map(c => normalize(c.label));
+
+                const idIdx = headers.findIndex(h => h.includes("id"));
+                const nameIdx = headers.indexOf("name");
+                const descIdx = headers.indexOf("description");
+                const regIdx = headers.indexOf("region");
+                const countIdx = headers.indexOf("country");
+                const surfIdx = headers.indexOf("surface");
+                const tagIdx = headers.indexOf("tags"); 
+                const lenIdx = headers.findIndex(h => h.includes("length") || h.includes("km"));
+
+                const row = rows.find(r => r.c[idIdx] && normalize(r.c[idIdx].v) === trackIdParam);
+
+                if (row) {
+                    document.getElementById("track-header").innerText = row.c[nameIdx]?.v || "Unknown Stage";
+                    
+                    const tag = row.c[tagIdx]?.v || "";
+                    const region = row.c[regIdx]?.v || "";
+                    const country = row.c[countIdx]?.v || "";
+                    const surface = row.c[surfIdx]?.v || "";
+                    const length = row.c[lenIdx]?.v || "";
+
+                    // Logical Formatting for Tags/Region/Country
+                    let geoParts = [];
+                    if (tag) geoParts.push(tag);
+                    
+                    if (region) {
+                        // Only add region if it exists and isn't the same as country
+                        if (normalize(region) !== normalize(country)) {
+                            geoParts.push(region);
+                        }
+                    }
+                    if (country) geoParts.push(country);
+
+                    let locationStr = geoParts.join("/");
+
+                    // Combine with Surface and Length
+                    let infoParts = [];
+                    if (locationStr) infoParts.push(locationStr);
+                    if (surface) infoParts.push(surface);
+                    if (length) infoParts.push(`(${length}km)`);
+
+                    document.getElementById("track-info").innerText = infoParts.join(" ");
+                    document.getElementById("track-description").innerText = row.c[descIdx]?.v || "";
+
+                    const content = document.getElementById("content-area");
+                    content.style.opacity = "1";
+                    content.classList.remove("fade-in");
+                    void content.offsetWidth;
+                    content.classList.add("fade-in");
+                } else {
+                    document.getElementById("content-area").style.opacity = "0";
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        loadTrackData();
+        setInterval(loadTrackData, 3000);
+    </script>
+</body>
+</html>
