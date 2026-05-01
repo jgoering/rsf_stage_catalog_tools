@@ -4,3 +4,5 @@ Tools related to my catalog of stages bundled with the RallySimFans plugin for R
 My Catalog: https://discord.com/channels/723091638951608320/749539467794055200/1486076735790383115
 
 RallySimFans: https://rallysimfans.hu/rbr/index.php
+
+Licensed under CC BY-NC-SA 4.0. (https://creativecommons.org/licenses/by-nc-sa/4.0/)
